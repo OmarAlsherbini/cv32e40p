@@ -16,6 +16,7 @@
 //                 Igor Loi - igor.loi@unibo.it                               //
 //                 Sven Stucki - svstucki@student.ethz.ch                     //
 //                 Davide Schiavone - pschiavo@iis.ee.ethz.ch                 //
+//                 Omar Alsherbini - omar.alsherbini@studio.unibo.it          //
 //                                                                            //
 // Design Name:    Decoder                                                    //
 // Project Name:   RI5CY                                                      //
@@ -2033,37 +2034,43 @@ module cv32e40p_decoder import cv32e40p_pkg::*; import cv32e40p_apu_core_pkg::*;
           rega_used_o         = 1'b1;
           imm_b_mux_sel_o     = IMMB_VS;
 
-          // vector size
-          if (instr_rdata_i[12]) begin
-            alu_vec_mode_o  = VEC_MODE8;
-            mult_operator_o = MUL_DOT8;
-          end else begin
-            alu_vec_mode_o = VEC_MODE16;
-            mult_operator_o = MUL_DOT16;
-          end
+	  // >>> Alsherbini's decoder's fix /*  0x08942757 0000 1000 1001 0100 0010 0111 0101 0111
+	  if ({instr_rdata_i[26], instr_rdata_i[14:13]} == {1'b0, 2'b01}) // Xpulp_NN ISA goes unrecognized.
+	    illegal_insn_o = 1'b1;
+	  else begin
+	  // >>> Alsherbini's decoder's fix /*
 
-          // distinguish normal vector, sc and sci modes
-          if (instr_rdata_i[14]) begin
-            scalar_replication_o = 1'b1;
-
-            if (instr_rdata_i[13]) begin
-              // immediate scalar replication, .sci
-              alu_op_b_mux_sel_o = OP_B_IMM;
+	    // vector size
+            if (instr_rdata_i[12]) begin
+              alu_vec_mode_o  = VEC_MODE8;
+              mult_operator_o = MUL_DOT8;
             end else begin
-              // register scalar replication, .sc
+              alu_vec_mode_o = VEC_MODE16;
+              mult_operator_o = MUL_DOT16;
+            end
+
+            // distinguish normal vector, sc and sci modes
+            if (instr_rdata_i[14]) begin
+              scalar_replication_o = 1'b1;
+
+              if (instr_rdata_i[13]) begin
+                // immediate scalar replication, .sci
+                alu_op_b_mux_sel_o = OP_B_IMM;
+              end else begin
+                // register scalar replication, .sc
+                regb_used_o = 1'b1;
+              end
+            end else begin
+              // normal register use
               regb_used_o = 1'b1;
             end
-          end else begin
-            // normal register use
-            regb_used_o = 1'b1;
-          end
 
           // now decode the instruction
           unique case (instr_rdata_i[31:26])
-            6'b00000_0: begin alu_operator_o = ALU_ADD;  imm_b_mux_sel_o = IMMB_VS;  end // pv.add
-            6'b00001_0: begin alu_operator_o = ALU_SUB;  imm_b_mux_sel_o = IMMB_VS;  end // pv.sub
-            6'b00010_0: begin alu_operator_o = ALU_ADD;  imm_b_mux_sel_o = IMMB_VS; bmask_b_mux_o = BMASK_B_ONE;  end // pv.avg
-            6'b00011_0: begin alu_operator_o = ALU_ADDU; imm_b_mux_sel_o = IMMB_VU; bmask_b_mux_o = BMASK_B_ONE;  end // pv.avgu
+            6'b00000_0: begin alu_operator_o = ALU_ADD;  imm_b_mux_sel_o = IMMB_VS;  end // pv.add 000 cv.add.h
+            6'b00001_0: begin alu_operator_o = ALU_SUB;  imm_b_mux_sel_o = IMMB_VS;  end // pv.sub 000 cv.sub.h
+            6'b00010_0: begin alu_operator_o = ALU_ADD;  imm_b_mux_sel_o = IMMB_VS; bmask_b_mux_o = BMASK_B_ONE;  end // pv.avg 000 cv.avg.h
+            6'b00011_0: begin alu_operator_o = ALU_ADDU; imm_b_mux_sel_o = IMMB_VU; bmask_b_mux_o = BMASK_B_ONE;  end // pv.avgu 000 cv.avgu.h
             6'b00100_0: begin alu_operator_o = ALU_MIN;  imm_b_mux_sel_o = IMMB_VS;  end // pv.min
             6'b00101_0: begin alu_operator_o = ALU_MINU; imm_b_mux_sel_o = IMMB_VU;  end // pv.minu
             6'b00110_0: begin alu_operator_o = ALU_MAX;  imm_b_mux_sel_o = IMMB_VS;  end // pv.max
@@ -2225,6 +2232,9 @@ module cv32e40p_decoder import cv32e40p_pkg::*; import cv32e40p_apu_core_pkg::*;
 
             default: illegal_insn_o = 1'b1;
           endcase
+	  // >>> Alsherbini's decoder's fix /*
+	  end
+	  // >>> Alsherbini's decoder's fix */
         end else begin
           illegal_insn_o = 1'b1;
         end
